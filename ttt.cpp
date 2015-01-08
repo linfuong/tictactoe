@@ -3,7 +3,7 @@
 
 #include "stdafx.h"
 #include "ttt.h"
-
+#include "brain.h"
 #define MAX_LOADSTRING 100
 #define PL 10 // боковая граница
 #define CS 50 // размер ячейки в пикселях
@@ -17,21 +17,15 @@ HWND hLog;
 INT tttField[9]; // игровое поле 0 - пусто, 1 - компьютер, 2 пользователь
 
 	
-BOOL gameInProgress;
-bool computerMove = false;
+
 INT computer, user;
 // Forward declarations of functions included in this code module:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
 BOOL				InitInstance(HINSTANCE, int);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
-BOOL				DrawTicTacToeField(HDC,int,int);
+BOOL				DrawTicTacToeField(HDC);
 			// TODO: Add any drawing code here...
-INT ComputerMove();
-
-void FlushMind();
-INT moveCount;
-
 Brain *myBrains;
 int APIENTRY _tWinMain(HINSTANCE hInstance,
                      HINSTANCE hPrevInstance,
@@ -208,10 +202,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	    SendMessage(hLog,WM_SETTEXT,NULL,(LPARAM)_T("Добро пожаловать на игру Крестики-Нолики\r\n"));
 
 		hMemDC = CreateCompatibleDC(GetDC(hWnd));
-		hBitmap = CreateCompatibleBitmap(GetDC(hWnd),PL + CS * 3, PL + CS * 3);
+		hBitmap = CreateCompatibleBitmap(GetDC(hWnd),CS * 3, CS * 3);
 		SelectObject(hMemDC, hBitmap);
 
-		DrawTicTacToeField(hMemDC,PL,PL);
+		DrawTicTacToeField(hMemDC);
 		LOGFONT lf;
 		GetObject( GetStockObject(DEFAULT_GUI_FONT), sizeof(lf), &lf );
 
@@ -272,7 +266,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				EnableWindow(GetDlgItem(hWnd, IDC_MAIN_BTN),FALSE);
 				RtlZeroMemory(&tttField,sizeof(tttField));
-				DrawTicTacToeField(hMemDC,PL,PL);
+				DrawTicTacToeField(hMemDC);
 				InvalidateRect(hWnd, NULL, FALSE);
 				int TextLen = SendMessage(hLog, WM_GETTEXTLENGTH, 0, 0);
 				SendMessage(hLog, EM_SETSEL, (WPARAM)TextLen, (LPARAM)TextLen);
@@ -281,7 +275,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				myBrains->InitGame(who==1, tttField);
 				if (who){
 					myBrains->Move();					
-					DrawTicTacToeField(hMemDC,PL,PL);
+					DrawTicTacToeField(hMemDC);
 					InvalidateRect(hWnd, NULL, FALSE);
 				}
 					
@@ -294,7 +288,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_PAINT:{
 		
 			hdc = BeginPaint(hWnd, &ps);			
-			BitBlt(hdc, 0, 0, PL + CS * 3, PL + CS * 3, hMemDC, 0, 0, SRCCOPY);
+			BitBlt(hdc, PL, PL, CS * 3, CS * 3, hMemDC, 0, 0, SRCCOPY);
 			EndPaint(hWnd, &ps);
 		}
 		break;
@@ -320,7 +314,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 						
 						myBrains->MoveUser(i+j*3);
 						
-						DrawTicTacToeField(hMemDC,PL,PL);
+						DrawTicTacToeField(hMemDC);
 						InvalidateRect(hWnd, &r, FALSE);
 
 						int result;
@@ -329,7 +323,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 							//computerMove = !computerMove;
 							myBrains->Move();
 							
-							DrawTicTacToeField(hMemDC,PL,PL);
+							DrawTicTacToeField(hMemDC);
 							InvalidateRect(hWnd, &r, FALSE);
 
 							result = myBrains->AnalyseGame();
@@ -380,26 +374,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	return 0;
 }
-BOOL DrawTicTacToeField(HDC hdc, int x, int y)
+BOOL DrawTicTacToeField(HDC hdc)
 {
 	// TODO: Add any drawing code here...
 	HGDIOBJ original = NULL;
-	RECT r2 = {0,0,PL+CS*3,PL+CS*3};
-    HPEN tttPen = CreatePen(PS_SOLID, 3, RGB(0,0,0));
+	HPEN tttPen = CreatePen(PS_SOLID, 3, RGB(0,0,0));
 
     original = SelectObject(hdc,GetStockObject(DC_PEN));
     SelectObject(hdc, GetStockObject(BLACK_PEN));
 	
-	FillRect(hdc, &r2, (HBRUSH)GetStockObject(WHITE_BRUSH));
-	Rectangle(hdc, x,y,CS * 3 + x, CS * 3 + y);
+	Rectangle(hdc, 0,0,CS * 3, CS * 3);
 	
 	for(int i = 0; i < 2; i++)
 	{
-		MoveToEx(hdc, x, (i + 1) * CS + y, NULL);
-		LineTo(hdc, x + CS * 3, (i + 1) * CS + y);
+		MoveToEx(hdc, 0, (i + 1) * CS, NULL);
+		LineTo(hdc, CS * 3, (i + 1) * CS);
 		
-		MoveToEx(hdc, (i + 1) * CS + x, y, NULL);
-		LineTo(hdc, (i + 1) * CS + x, CS * 3 + y);
+		MoveToEx(hdc, (i + 1) * CS, 0, NULL);
+		LineTo(hdc, (i + 1) * CS, CS * 3);
 	}
 #define PAD_CELL 5
 	
@@ -412,16 +404,16 @@ BOOL DrawTicTacToeField(HDC hdc, int x, int y)
 		
 		if (tttField[i] == 1)
 		{
-			MoveToEx(hdc, x + j * CS + PAD_CELL, y + k * CS + PAD_CELL, NULL);
-			LineTo(hdc, x + (j + 1) * CS - PAD_CELL, y + (k + 1) * CS - PAD_CELL);
+			MoveToEx(hdc, j * CS + PAD_CELL, k * CS + PAD_CELL, NULL);
+			LineTo(hdc, (j + 1) * CS - PAD_CELL, (k + 1) * CS - PAD_CELL);
 
-			MoveToEx(hdc, x + j * CS + PAD_CELL, y + (k + 1) * CS - PAD_CELL, NULL);
-			LineTo(hdc, x + (j + 1) * CS - PAD_CELL, y + k * CS + PAD_CELL);
+			MoveToEx(hdc, j * CS + PAD_CELL, (k + 1) * CS - PAD_CELL, NULL);
+			LineTo(hdc, (j + 1) * CS - PAD_CELL, k * CS + PAD_CELL);
 		}
 		else if (tttField[i] == 2)
 		{
-			::Ellipse(hdc, x + j * CS + PAD_CELL, y + k * CS + PAD_CELL, 
-				x + (j + 1) * CS - PAD_CELL, y + (k + 1) * CS-PAD_CELL);
+			::Ellipse(hdc, j * CS + PAD_CELL, k * CS + PAD_CELL, 
+				(j + 1) * CS - PAD_CELL, (k + 1) * CS-PAD_CELL);
 		}
 	}
 
@@ -430,15 +422,7 @@ BOOL DrawTicTacToeField(HDC hdc, int x, int y)
 	
 	return TRUE;
 }
-INT ComputerMove()
-{
-	
-	return 0;
-}
 
-
-			// TODO: Add any drawing code here...
-// Message handler for about box.
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);

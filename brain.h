@@ -1,3 +1,13 @@
+// матрица симметрий
+#define IN_PROGRESS 0
+#define COMPUTER_WIN 1
+#define USER_WIN 2
+#define PARITY 3
+
+#define RES_WIN 1
+#define RES_PARITY 0
+#define RES_LOOSE 2
+
 class Brain 
 {
 	struct NERV_CELL{
